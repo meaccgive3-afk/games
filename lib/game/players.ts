@@ -92,7 +92,7 @@ const ROWS: Row[] = [
   ["مارتن أوديغارد", "أرسنال", "النرويج", "MID", 87, 80],
   ["أليكسيس ماك أليستر", "ليفربول", "الأرجنتين", "MID", 86, 70],
   ["رايان جرافنبيرخ", "ليفربول", "هولندا", "MID", 85, 70],
-  ["دومينيك سوبوسلاي", "ليفربول", "المجر", "MID", 85, 65],
+  ["دو��ينيك سوبوسلاي", "ليفربول", "المجر", "MID", 85, 65],
   ["فلوريان فيرتز", "ليفربول", "ألمانيا", "MID", 88, 120],
   ["نيكولو باريلا", "إنتر ميلان", "إيطاليا", "MID", 87, 70],
   ["هاكان تشالهان أوغلو", "إنتر ميلان", "تركيا", "MID", 84, 25],
@@ -214,7 +214,7 @@ export const PLAYERS: Player[] = ROWS.map(([name, club, nation, group, rating, v
   group,
   rating,
   value,
-  img: `/players/${group.toLowerCase()}-${(i % 12) + 1}.png`,
+  img: `/players/${group.toLowerCase()}-${(i % 6) + 1}.png`,
 }))
 
 export const PLAYER_MAP: Record<string, Player> = Object.fromEntries(PLAYERS.map((p) => [p.id, p]))
