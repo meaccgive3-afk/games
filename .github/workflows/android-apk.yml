@@ -1,0 +1,77 @@
+name: Build Android APK
+
+on:
+  push:
+    paths:
+      - "android/**"
+      - "www/**"
+      - "capacitor.config.ts"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/android-apk.yml"
+  workflow_dispatch:
+    inputs:
+      app_url:
+        description: "URL the app shell loads (defaults to the CAP_SERVER_URL variable or the Vercel production URL)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Assemble debug APK
+    runs-on: ubuntu-latest
+    env:
+      CAP_SERVER_URL: ${{ inputs.app_url || vars.CAP_SERVER_URL || 'https://games-wine3660-3520.vercel.app' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Sync Capacitor Android project
+        run: pnpm exec cap sync android
+
+      - name: Show resolved app URL
+        run: |
+          echo "App shell will load: $CAP_SERVER_URL"
+          grep -o '"url":"[^"]*"' android/app/src/main/assets/capacitor.config.json || true
+
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mzad-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 30
