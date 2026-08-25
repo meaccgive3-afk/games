@@ -1,3 +1,4 @@
+import { playerImageUrl } from "./images"
 import type { Player, PositionGroup } from "./types"
 
 /**
@@ -214,7 +215,7 @@ export const PLAYERS: Player[] = ROWS.map(([name, club, nation, group, rating, v
   group,
   rating,
   value,
-  img: `/players/${group.toLowerCase()}-${(i % 12) + 1}.png`,
+  img: playerImageUrl(slug(i)),
 }))
 
 export const PLAYER_MAP: Record<string, Player> = Object.fromEntries(PLAYERS.map((p) => [p.id, p]))
