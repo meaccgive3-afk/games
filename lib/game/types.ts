@@ -70,6 +70,10 @@ export interface MatchState {
   bId: string
   finished: boolean
   penalties?: { a: number; b: number; text: string } | null
+  /** توقيت انطلاق المحاكاة — تُشغَّل عند كل المشاهدين بنفس الإيقاع */
+  startedAt: number
+  /** مللي ثانية لكل دقيقة مباراة */
+  speedMs: number
 }
 
 export interface RoomState {

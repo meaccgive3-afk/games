@@ -104,6 +104,7 @@ export function placeBid(state: RoomState, participantId: string, amount: number
   if (!lot || lot.status !== "open") throw new Error("لا يوجد مزاد مفتوح")
   const p = state.participants.find((x) => x.id === participantId)
   if (!p) throw new Error("مشترك غير موجود")
+  if (p.id === state.hostId) throw new Error("الحكم لا يزايد")
   if (p.squad[lot.slot]) throw new Error("عندك لاعب في هذا المركز")
 
   const top = topBid(state)
@@ -142,7 +143,9 @@ export function closeLot(state: RoomState) {
   lot.price = top.amount
   pushLog(state, `${player.name} من نصيب ${winner.name} بـ ${top.amount} مليون`, "sold")
 
-  const losers = state.participants.filter((p) => p.id !== winner.id && !p.squad[lot.slot])
+  const losers = state.participants.filter(
+    (p) => p.id !== winner.id && p.id !== state.hostId && !p.squad[lot.slot],
+  )
   if (state.settings.giftEnabled && losers.length > 0) {
     lot.giftPendingFor = losers.map((p) => p.id)
   } else {
@@ -187,6 +190,7 @@ export function allSquadsComplete(state: RoomState) {
 export function finishAuction(state: RoomState) {
   state.coaches = {}
   for (const p of state.participants) {
+    if (p.id === state.hostId) continue
     const coach = coachForRemaining(remainingBudget(p))
     state.coaches[p.id] = { name: coach.name, tier: coach.tier, boost: coach.boost }
     pushLog(state, `${p.name} حصل على المدرب ${coach.name} (${coach.tier})`, "info")
@@ -206,7 +210,7 @@ export function useCard(
   if (!p) throw new Error("مشترك غير موجود")
   if (p.cardUsed) throw new Error("الكرت مستخدم")
   const entry = p.squad[slot]
-  if (!entry) throw new Error("لا يوجد لاعب في هذا المركز")
+  if (!entry) throw new Error("لا يوجد لاع�� في هذا المركز")
   if (state.taken.includes(newPlayerId)) throw new Error("اللاعب مأخوذ")
   const incoming = getPlayer(newPlayerId)
   if (!incoming) throw new Error("لاعب غير موجود")
