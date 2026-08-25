@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">مزاد</string>
+    <string name="title_activity_main">مزاد</string>
+    <string name="package_name">app.vercel.mzad</string>
+    <string name="custom_url_scheme">app.vercel.mzad</string>
+</resources>
