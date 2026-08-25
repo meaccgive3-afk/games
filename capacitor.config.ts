@@ -1,23 +1,31 @@
 import type { CapacitorConfig } from "@capacitor/cli"
 
 /**
- * The app is server-driven (Next.js Server Actions + Postgres + R2), so the
- * Android app is a native shell that loads the deployed site.
+ * اللعبة تعمل على السيرفر (Next.js + Postgres)، فالتطبيق يفتح واجهة اللعبة
+ * داخل التطبيق نفسه (WebView) ولا يفتح متصفح خارجي أبداً.
  *
- * Set CAP_SERVER_URL at build time to point the shell at a different deployment
- * (e.g. a preview URL). Defaults to the project's Vercel production URL.
+ * مهم: لا تستخدم رابط Deployment محمي بـ Vercel Deployment Protection،
+ * لأنه يعمل تحويل إلى vercel.com/login وهو نطاق خارجي — وهذا هو السبب
+ * الذي كان يفتح المتصفح ويطلع صفحة موقع بدل اللعبة.
+ *
+ * غيّر الرابط وقت البناء بـ CAP_SERVER_URL إذا احتجت نشر ثاني.
  */
-const serverUrl = process.env.CAP_SERVER_URL || "https://games-wine3660-3520.vercel.app"
+const DEFAULT_APP_URL = "https://games-three-lac.vercel.app"
+
+const serverUrl = (process.env.CAP_SERVER_URL || DEFAULT_APP_URL).replace(/\/+$/, "")
+const appHost = new URL(serverUrl).hostname
 
 const config: CapacitorConfig = {
   appId: "app.vercel.mzad",
   appName: "مزاد",
-  // Only used as a local fallback bundle while the remote URL loads.
+  // شاشة انتظار محلية داخل التطبيق تظهر ريثما تُحمّل الواجهة.
   webDir: "www",
   server: {
     url: serverUrl,
     cleartext: false,
     androidScheme: "https",
+    // نسمح بالتنقل داخل نطاق اللعبة فقط، فيبقى كل شيء داخل التطبيق.
+    allowNavigation: [appHost],
   },
   android: {
     allowMixedContent: false,
