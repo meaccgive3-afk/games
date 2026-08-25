@@ -1,8 +1,10 @@
 "use client"
 
 import { useMemo, useState, useTransition } from "react"
-import { Gavel, Gift, Search } from "lucide-react"
+import { Gavel, Gift, Loader2, Search, Sparkles } from "lucide-react"
 import {
+  aiGiftAction,
+  aiOpenLotAction,
   bidAction,
   closeLotAction,
   finishAuctionAction,
@@ -92,9 +94,9 @@ export function AuctionView({
               )}
             </div>
           ) : giftQueue.length > 0 ? (
-            <GiftPanel state={state} isHost={isHost} pending={pending} run={run} />
+            <GiftPanel state={state} isHost={isHost} pending={pending} run={run} refresh={refresh} />
           ) : isHost ? (
-            <OpenLotPanel state={state} pending={pending} run={run} />
+            <OpenLotPanel state={state} pending={pending} run={run} refresh={refresh} />
           ) : (
             <div className="flex flex-col items-center gap-2 py-8 text-center">
               <Gavel className="size-8 text-muted-foreground" aria-hidden="true" />
@@ -248,14 +250,78 @@ function BidBar({
   )
 }
 
+/** زر تفويض القرار لحكم BluesMinds */
+function AiRefereeButton({
+  label,
+  hint,
+  disabled,
+  action,
+  refresh,
+}: {
+  label: string
+  hint: string
+  disabled?: boolean
+  action: () => Promise<{ ok: boolean; error?: string; data?: { reason: string } }>
+  refresh: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const [reason, setReason] = useState<string | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+
+  async function go() {
+    setBusy(true)
+    setErr(null)
+    setReason(null)
+    try {
+      const res = await action()
+      if (res.ok) setReason(res.data?.reason ?? null)
+      else setErr(res.error ?? "تعذّر قرار الحكم")
+    } catch {
+      setErr("تعذّر الاتصال بحكم BluesMinds")
+    } finally {
+      setBusy(false)
+      refresh()
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-primary/30 bg-primary/5 p-3">
+      <Button variant="primary" disabled={busy || disabled} onClick={go}>
+        {busy ? (
+          <span className="flex items-center justify-center gap-2">
+            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+            حكم BluesMinds يفكّر…
+          </span>
+        ) : (
+          <span className="flex items-center justify-center gap-2">
+            <Sparkles className="size-4" aria-hidden="true" />
+            {label}
+          </span>
+        )}
+      </Button>
+      <p className="text-xs leading-relaxed text-muted-foreground">{hint}</p>
+      {reason ? (
+        <p className="rounded-sm bg-primary/10 px-2 py-1.5 text-xs leading-relaxed text-primary">
+          تعليل الحكم: {reason}
+        </p>
+      ) : null}
+      {err ? (
+        <p className="rounded-sm bg-destructive/15 px-2 py-1.5 text-xs text-destructive-foreground">{err}</p>
+      ) : null}
+    </div>
+  )
+}
+
 function OpenLotPanel({
   state,
   pending,
   run,
+  refresh,
 }: {
   state: RoomState
   pending: boolean
   run: (fn: () => Promise<{ ok: boolean; error?: string }>) => void
+  refresh: () => void
 }) {
   const openSlots = useMemo(() => {
     const bidders = state.participants.filter((p) => p.id !== state.hostId)
@@ -276,7 +342,17 @@ function OpenLotPanel({
 
   return (
     <div className="flex flex-col gap-3">
-      <SectionTitle hint="اختر المركز واللاعب">افتح مزاداً جديداً</SectionTitle>
+      <SectionTitle hint="الحكم الذكي أو اختيار يدوي">افتح مزاداً جديداً</SectionTitle>
+
+      <AiRefereeButton
+        label="دع حكم BluesMinds يختار اللاعب"
+        hint="يقرأ الميزانيات والمراكز الناقصة ويطرح لاعباً لم يُؤخذ من قبل."
+        disabled={pending || openSlots.length === 0}
+        action={() => aiOpenLotAction(state.code)}
+        refresh={refresh}
+      />
+
+      <p className="text-center text-xs text-muted-foreground">أو اختر يدوياً</p>
 
       <div className="flex flex-col gap-2 sm:flex-row">
         <Select
@@ -329,11 +405,13 @@ function GiftPanel({
   isHost,
   pending,
   run,
+  refresh,
 }: {
   state: RoomState
   isHost: boolean
   pending: boolean
   run: (fn: () => Promise<{ ok: boolean; error?: string }>) => void
+  refresh: () => void
 }) {
   const lot = state.currentLot!
   const queue = lot.giftPendingFor ?? []
@@ -378,8 +456,19 @@ function GiftPanel({
         </SectionTitle>
       </div>
       <p className="text-xs leading-relaxed text-muted-foreground">
-        اختر لاعباً مجانياً لمركز فاضي عنده — بدون خصم من ميزانيته.
+        لاعب مجاني لمركز فاضي عنده — بدون خصم من ميزانيته.
       </p>
+
+      <AiRefereeButton
+        key={target.id}
+        label={`دع حكم BluesMinds يختار هدية ${target.name}`}
+        hint="يوازن التعويض حسب تشكيلته وميزانيته، ولا يمنح لاعباً مأخوذاً."
+        disabled={pending || emptySlots.length === 0}
+        action={() => aiGiftAction(state.code, target.id)}
+        refresh={refresh}
+      />
+
+      <p className="text-center text-xs text-muted-foreground">أو اختر يدوياً</p>
 
       <div className="flex flex-col gap-2 sm:flex-row">
         <Select

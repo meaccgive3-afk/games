@@ -109,7 +109,9 @@ export function MatchView({
       <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
         {/* التعليق الحي */}
         <Card>
-          <SectionTitle hint="دقيقة بدقيقة">التعليق</SectionTitle>
+          <SectionTitle hint={match.narrator === "ai" ? "بقلم حكم BluesMinds" : "دقيقة بدقيقة"}>
+            التعليق
+          </SectionTitle>
           <div ref={feedRef} className="no-scrollbar mt-3 flex max-h-[28rem] flex-col gap-2 overflow-y-auto">
             {[...shown].reverse().map((e, i) => (
               <EventRow key={`${e.minute}-${i}`} e={e} aName={a.name} bName={b.name} fresh={i === 0} />

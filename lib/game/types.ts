@@ -74,6 +74,8 @@ export interface MatchState {
   startedAt: number
   /** مللي ثانية لكل دقيقة مباراة */
   speedMs: number
+  /** من كتب السيناريو: حكم BluesMinds أم محرك المحاكاة الاحتياطي */
+  narrator?: "ai" | "engine"
 }
 
 export interface RoomState {

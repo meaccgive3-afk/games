@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState, useTransition } from "react"
-import { IdCard, Sparkles } from "lucide-react"
+import { IdCard, Loader2, Sparkles } from "lucide-react"
 import { skipCardAction, startMatchAction, useCardAction } from "@/app/actions"
 import { Badge, Button, Card, Input, SectionTitle, Select } from "@/components/ui/primitives"
 import { PlayerCard } from "./player-card"
@@ -266,10 +266,24 @@ function MatchStarter({
         <Button
           size="lg"
           disabled={pending || !a || !b || a === b}
-          onClick={() => run(() => startMatchAction(state.code, a, b, speed))}
+          onClick={() => run(() => startMatchAction(state.code, a, b, speed, true))}
         >
-          صافرة البداية
+          {pending ? (
+            <span className="flex items-center justify-center gap-2">
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              حكم BluesMinds يكتب السيناريو…
+            </span>
+          ) : (
+            <span className="flex items-center justify-center gap-2">
+              <Sparkles className="size-4" aria-hidden="true" />
+              صافرة البداية
+            </span>
+          )}
         </Button>
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          نموذج BluesMinds يكتب أحداث المباراة من التشكيلتين الحقيقيتين — كل هدف باسم لاعب موجود فعلاً في
+          الفريق.
+        </p>
       </div>
     </Card>
   )

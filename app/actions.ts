@@ -14,6 +14,7 @@ import {
   skipGifts as skipGiftsFn,
   useCard as useCardFn,
 } from "@/lib/game/engine"
+import { aiMatchScenario, aiPickGift, aiPickLot } from "@/lib/game/ai-referee"
 import { simulateMatch } from "@/lib/game/match"
 import { createRoom, loadRoom, mutateRoom } from "@/lib/game/store"
 import type { PositionKey, RoomState } from "@/lib/game/types"
@@ -128,6 +129,56 @@ export async function openLotAction(code: string, slot: PositionKey, playerId: s
   }
 }
 
+/** الحكم الذكي (BluesMinds) يختار المركز واللاعب القادم بنفسه */
+export async function aiOpenLotAction(code: string): Promise<Result<{ reason: string; model: string }>> {
+  try {
+    const row = await loadRoom(code)
+    if (!row) return { ok: false, error: "الغرفة غير موجودة" }
+    const snapshot = row.state as RoomState
+    if (snapshot.phase !== "auction") return { ok: false, error: "مو وقت المزاد" }
+    if (snapshot.currentLot) return { ok: false, error: "في مزاد مفتوح حالياً" }
+
+    const pick = await aiPickLot(snapshot)
+
+    await mutateRoom(code, (s) => {
+      if (s.phase !== "auction") throw new Error("مو وقت المزاد")
+      if (s.currentLot) throw new Error("في مزاد مفتوح حالياً")
+      // إعادة تحقق على الحالة الحديثة — الحماية النهائية ضد التكرار
+      if (s.taken.includes(pick.playerId)) throw new Error("اللاعب صار مأخوذاً — أعد المحاولة")
+      openLotFn(s, pick.slot, pick.playerId)
+      pushLog(s, `حكم BluesMinds: ${pick.reason}`, "info")
+    })
+
+    return { ok: true, data: { reason: pick.reason, model: pick.model } }
+  } catch (e) {
+    return fail(e)
+  }
+}
+
+/** الحكم الذكي يختار هدية الخاسر */
+export async function aiGiftAction(
+  code: string,
+  participantId: string,
+): Promise<Result<{ reason: string; model: string }>> {
+  try {
+    const row = await loadRoom(code)
+    if (!row) return { ok: false, error: "الغرفة غير موجودة" }
+    const snapshot = row.state as RoomState
+
+    const pick = await aiPickGift(snapshot, participantId)
+
+    await mutateRoom(code, (s) => {
+      if (s.taken.includes(pick.playerId)) throw new Error("اللاعب صار مأخوذاً — أعد المحاولة")
+      giveGiftFn(s, participantId, pick.playerId, pick.slot)
+      pushLog(s, `حكم BluesMinds: ${pick.reason}`, "gift")
+    })
+
+    return { ok: true, data: { reason: pick.reason, model: pick.model } }
+  } catch (e) {
+    return fail(e)
+  }
+}
+
 export async function bidAction(code: string, participantId: string, amount: number): Promise<Result> {
   try {
     await mutateRoom(code, (s) => placeBidFn(s, participantId, Math.round(amount)))
@@ -212,13 +263,31 @@ export async function startMatchAction(
   aId: string,
   bId: string,
   speedMs = 650,
-): Promise<Result> {
+  useAi = true,
+): Promise<Result<{ narrator: "ai" | "engine"; model?: string }>> {
   try {
+    const row = await loadRoom(code)
+    if (!row) return { ok: false, error: "الغرفة غير موجودة" }
+    const snapshot = row.state as RoomState
+    const a0 = snapshot.participants.find((p) => p.id === aId)
+    const b0 = snapshot.participants.find((p) => p.id === bId)
+    if (!a0 || !b0 || aId === bId) return { ok: false, error: "اختر فريقين مختلفين" }
+
+    // سيناريو الحكم الذكي — وإن فشل نرجع لمحاكاة المحرك حتى لا تتعطل اللعبة
+    let scenario: Awaited<ReturnType<typeof aiMatchScenario>> | null = null
+    if (useAi) {
+      try {
+        scenario = await aiMatchScenario(snapshot, aId, bId)
+      } catch (e) {
+        console.log("[v0] ai scenario failed, falling back:", e instanceof Error ? e.message : e)
+      }
+    }
+
     await mutateRoom(code, (s) => {
       const a = s.participants.find((p) => p.id === aId)
       const b = s.participants.find((p) => p.id === bId)
       if (!a || !b || aId === bId) throw new Error("اختر فريقين مختلفين")
-      const sim = simulateMatch(s, aId, bId)
+      const sim = scenario ?? simulateMatch(s, aId, bId)
       s.phase = "match"
       s.match = {
         running: true,
@@ -232,10 +301,18 @@ export async function startMatchAction(
         penalties: sim.penalties,
         startedAt: Date.now() + 1500,
         speedMs: Math.min(2000, Math.max(120, Math.round(speedMs))),
+        narrator: scenario ? "ai" : "engine",
       }
-      pushLog(s, `انطلقت المباراة: ${a.name} ضد ${b.name}`, "info")
+      pushLog(
+        s,
+        scenario
+          ? `حكم BluesMinds كتب سيناريو المباراة: ${a.name} ضد ${b.name}`
+          : `انطلقت المباراة: ${a.name} ضد ${b.name}`,
+        "info",
+      )
     })
-    return { ok: true }
+
+    return { ok: true, data: { narrator: scenario ? "ai" : "engine", model: scenario?.model } }
   } catch (e) {
     return fail(e)
   }
